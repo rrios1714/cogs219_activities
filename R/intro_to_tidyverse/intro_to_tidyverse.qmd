@@ -515,7 +515,7 @@ Go through each line. Can you figure out what each one is doing?
 
 Notes: we introduce a couple of new functions here:
 
--    `sd()`: computes the standard deviation
+-   `sd()`: computes the standard deviation
 
 -   `sqrt()`: computes the square root
 
