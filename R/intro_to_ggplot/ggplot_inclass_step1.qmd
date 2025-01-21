@@ -163,6 +163,11 @@ Make a scatter plot that shows the relationship between the variables `depth` (o
 
 ```{r}
 #enter your plot here
+ggplot(data = df.diamonds,
+       mapping = aes(x = depth,
+                     y = table,
+                     )) + 
+  geom_point()
 
 ```
 

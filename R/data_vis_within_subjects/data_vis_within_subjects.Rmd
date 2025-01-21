@@ -43,6 +43,7 @@ overall_2A_block <- subj_2A_block |>
 overall_2A_block |> 
   kable()
 ```
+#the above with the block that would be the plotting and creating tables
 
 ## Plot it
 
