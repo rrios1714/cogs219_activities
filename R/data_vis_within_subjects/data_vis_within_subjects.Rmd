@@ -1,0 +1,140 @@
+---
+title: "Visualize Within-Subjects Condition Effects"
+author: "Martin Zettersten"
+date: "2025-01-21"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(here)
+library(knitr)
+library(ggimage)
+library(gghalves)
+library(cowplot)
+```
+
+## Read in data
+
+```{r}
+d <- read_csv(here("data","nameability_exercise_2.csv"))
+```
+
+## Summarize the data by block and plot
+
+### By Subject
+
+```{r}
+subj_2A_block <- filter(d,experiment=="2A") |> 
+  group_by(subject,condition,block_num) |> 
+  summarize(
+    accuracy=mean(is_right))
+```
+
+### Across Subjects
+
+```{r}
+overall_2A_block <- subj_2A_block |> 
+  group_by(condition,block_num) |> 
+  summarize(mean_accuracy = mean(accuracy),
+            sd_accuracy = sd(accuracy),
+            n_obs = n(),
+            sem = sd_accuracy / sqrt(n_obs))
+overall_2A_block |> 
+  kable()
+```
+
+## Plot it
+
+```{r, warning=F}
+p <- ggplot(overall_2A_block, aes(block_num,mean_accuracy))+
+  geom_line(aes(linetype=condition,color=condition,group=condition),linewidth=2,position=position_dodge(.05))+
+  geom_errorbar(aes(ymin=mean_accuracy-sem,ymax=mean_accuracy+sem,color=condition,group=condition),width=0,size=0.75,position=position_dodge(.05))+
+  geom_point(aes(fill=condition, shape=condition,color=condition,group=condition),size=4,position=position_dodge(.05))+
+  theme_classic(base_size=18)+
+  scale_color_brewer(palette="Set1",name="Nameability")+
+  scale_fill_brewer(palette="Set1",name="Nameability")+
+  scale_linetype_discrete(name="Nameability")+
+  scale_shape_discrete(name="Nameability")+
+  xlab("Block")+
+  ylab("Training Accuracy")+
+  scale_y_continuous(breaks=seq(0.4,1,0.1), limits=c(0.38,1))+
+  scale_x_continuous(breaks=seq(1,6,1))+
+  theme(legend.position=c(.8, .2),legend.text=element_text(size=14),legend.title=element_text(size=14,face="bold"))
+p
+```
+
+### Advanced: add an image
+
+```{r}
+#image database
+image_d <- tibble(
+  #control positions of x and y axis
+  block_num = c(3,3),
+  mean_accuracy = c(0.9,0.45),
+  #specify image paths
+  image_path = c(
+    here("images","high_A_000_1.png"),
+    here("images","low_B_111_2.png")
+  )
+)
+
+#add plot
+p +
+  geom_image(data=image_d,aes(image=image_path),size=0.15)
+```
+
+## Summarize overall within-subjects effects
+
+### By Subject
+
+```{r}
+subj_2A <- filter(d,experiment=="2A") |> 
+  group_by(condition,subject) |> 
+  summarize(
+    accuracy=mean(is_right))
+```
+
+### Across Subjects
+
+```{r}
+overall_2A <- subj_2A |> 
+  group_by(condition) |> 
+  summarize(mean_accuracy = mean(accuracy),
+            sd_accuracy = sd(accuracy),
+            n_obs = n(),
+            sem = sd_accuracy / sqrt(n_obs),
+            ci = sem *1.96)
+overall_2A |> 
+  kable()
+```
+
+## Visualize overall within-subject effects
+
+```{r}
+p_within <- subj_2A %>%
+  ggplot(aes(condition,accuracy,fill=condition,color=condition))+
+  theme_cowplot()+
+  geom_half_violin(data= filter(subj_2A, condition=="low"),position = position_nudge(x = -.1, y = 0), width=1,adjust=1.5,trim = FALSE, alpha = .8,color=NA,side="l")+
+  geom_half_violin(data=filter(subj_2A, condition=="high"),position = position_nudge(x = .1, y = 0), width=1,adjust=1.5,trim = FALSE, alpha = .8,color=NA,side="r")+
+  #geom_line(aes(group=subject),position = position_jitter(width = 0.08,height=0.05, seed = 123),alpha=0.2,color="black") +
+  #geom_point(position = position_jitter(width = 0.08,height=0.05, seed = 123))+
+  geom_line(aes(group=subject),alpha=0.2,color="black") +
+  geom_point()+
+  geom_errorbar(data=overall_2A,aes(y=mean_accuracy,ymin=mean_accuracy-ci,ymax=mean_accuracy+ci),width=0,size=1.5,color="black")+
+  geom_point(data=overall_2A,aes(y=mean_accuracy),size=6,color="black")+
+  geom_line(data=overall_2A,aes(y=mean_accuracy,group=1),size=2,color="black")+
+  scale_color_brewer(palette="Set1")+
+  scale_fill_brewer(palette="Set1")+
+  scale_x_discrete(limits=c("low","high"))+
+  theme(axis.title.x = element_text(face="bold", size=20),
+        axis.text.x  = element_text(size=16),
+        axis.title.y = element_text(face="bold", size=20),
+        axis.text.y  = element_text(size=16),
+        strip.text.x = element_text(size = 16,face="bold"))+
+  theme(legend.position="none")+
+  xlab("Nameability Condition")+
+  ylab("Training Accuracy")
+p_within
+```
+
