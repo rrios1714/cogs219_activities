@@ -1,0 +1,169 @@
+---
+title: "Nest and Map"
+format: 
+  html:
+    code-fold: true
+    code-tools: true
+    toc: true
+editor: visual
+---
+
+The following tutorial will introduce you to a set of powerful functions in the tidyverse:
+
+-   `nest()`
+
+-   `map()`
+
+They are especially powerful when used in combination with each other
+
+## Load libraries and data
+
+For this exercise, we're going to use the Gapminder dataset
+
+```{r}
+#install.packages("gapminder")
+library(gapminder)
+library(tidyverse)
+library(broom)
+```
+
+Now, let's just take a quick peek at the [gapminder](https://cran.r-project.org/web/packages/gapminder/readme/README.html) dataset, an excerpt from the [Gapminder](https://www.gapminder.org/data/) data. The dataset shows information about population size, life expectancy and GDP (per capita) for a range of different countries from 1952 - 2007.
+
+```{r}
+df <- gapminder
+df %>%
+  glimpse()
+```
+
+One thing we can notice is that gdp per capita has a long tail
+
+```{r}
+df %>%
+  ggplot(aes(gdpPercap))+
+  geom_histogram()
+```
+
+Let's log transform gdp per capita to make it more akin to a normal distribution
+
+```{r}
+df <- df %>%
+  mutate(log_gdp_pc = log(gdpPercap))
+```
+
+That's better
+
+```{r}
+hist(df$log_gdp_pc)
+```
+
+## Predicting life expectancy from gdp per capita
+
+Let's fit a linear model predicting life expectancy from GDP per capita. Just for illustration's sake, I'm going to focus on one particular year: 1977.
+
+```{r}
+df_77 <- df %>% 
+  filter(year == 1977)
+
+fit <- lm(lifeExp ~ log_gdp_pc, data = df_77)
+summary(fit)
+```
+
+You can use the broom package to get a "tidy" output and the `kable()` function in knitr to get a clean-looking table
+
+```{r}
+fit %>%
+  broom::tidy() %>%
+  knitr::kable()
+```
+
+Plot it!
+
+```{r}
+ggplot(df_77,aes(log_gdp_pc,lifeExp))+
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+So it looks like there is a strong relationship between (log) GDP and life expectancy in the year 1977. How general is that pattern?
+
+One way we could approach this is to just copy-paste the code above for each year, and look at the outcome. That seems pretty cumbersome and redundant though. Instead, we'll use `nest()` and `map()` to handle this in just a few lines of code, all while keeping our data in a tidy format (!)
+
+## Using nest and map to look across many years
+
+### nest()
+
+First, we use [`nest()`](https://tidyr.tidyverse.org/reference/nest.html) to create a data frame in which each row **contains the dataset for a particular year** (nested within a cell!).
+
+```{r}
+nested <- gapminder %>%
+  group_by(year) %>%
+  nest()
+```
+
+Take a look at what the outcome looks like. We now have two columns, year and data. The data for a particular year is nested in the cell of each row.
+
+```{r}
+nested %>%
+  glimpse()
+```
+
+### map()
+
+Next, we use [`map()`](https://purrr.tidyverse.org/reference/map.html) to execute a function in each row of a cell.
+
+First, let's define a quick function to fit a linear model on our data.
+
+```{r}
+fit_ols <- function(df) {
+  lm(lifeExp ~ log_gdp_pc, data = df)
+}
+```
+
+### Combine nest() and map()
+
+Now, we can use `map()` to run the function (`fit_ols()`) fitting a linear model in each row of the nested data frame.
+
+```{r}
+nested_fit <- df %>%
+  group_by(year) %>%
+  nest() %>%
+  mutate(model=map(data,fit_ols))
+```
+
+We've created a new column that holds the model fit for each of our linear models (per year).
+
+Finally, we can use the [`tidy()`](https://broom.tidymodels.org/) function in broom to summarize the model outputs into a neat format. Again we use map
+
+```{r}
+nested_output <- nested_fit %>%
+  mutate(output = map(model,broom::tidy))
+```
+
+Finally, we use unnest() the output back into a neat dataframe.
+
+```{r}
+unnested_output <- nested_output %>%
+  unnest(output)
+```
+
+Et voila!! A clean table of model outputs
+
+```{r}
+unnested_output %>%
+  #remove the columns we don't want
+  select(-data,-model) %>%
+  #just show the effect of gdp
+  filter(term=="log_gdp_pc") %>%
+  knitr::kable()
+```
+
+### Plot
+
+Here's a nice companion plot to show what's going on in the data. Note that we're not using nesting here, we're just taking advantage of ggplot's `facet_wrap()` function
+
+```{r}
+ggplot(df,aes(log_gdp_pc,lifeExp))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~year)
+```

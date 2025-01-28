@@ -1,7 +1,11 @@
 ---
 title: "GGplot Tutorial: Part 2"
 author: "Tobi Gerstenberg, edited by Bria Long & Martin Zettersten"
-format: html
+format: 
+  html:
+    code-fold: true
+    code-tools: true
+    toc: true
 editor: visual
 ---
 
@@ -123,9 +127,10 @@ ggplot(data = df.diamonds[1:150, ],
 
 Note that I'm only plotting the first 150 entries of the data here by setting `data = df.diamonds[1:150,]` in `gpplot()`.
 
-This plot shows means, bootstrapped confidence intervals, and individual data points. I've used two tricks to make the individual data points easier to see. 1. I've set the `alpha` attribute to make the points somewhat transparent. 2. I've used the `position_jitter()` function to jitter the points horizontally. 3. I've used `shape = 21` for displaying the mean. For this circle shape, we can set a `color` and `fill` (see Figure \@ref(fig:plotting-shapes))
+This plot shows means, bootstrapped confidence intervals, and individual data points. I've used two tricks to make the individual data points easier to see. 1. I've set the `alpha` attribute to make the points somewhat transparent. 2. I've used the `position_jitter()` function to jitter the points horizontally. 3. I've used `shape = 21` for displaying the mean. For this circle shape, we can set a `color` and `fill` (see @fig-plotting-shapes)
 
 ```{r plotting-shapes, echo=FALSE, fig.cap="Different shapes that can be used for plotting."}
+#| label: fig-plotting-shapes
 # plot showing the different shapes 
 df.plot = tibble(x = rep(1:5, 5),
                  y = rep(seq(5, 1, -1), each = 5),
@@ -167,18 +172,20 @@ What do boxplots show? Here adapted from `help(geom_boxplot())`:
 Boxplots are ok, but they have limitations. Many data sets are consistent with the same boxplot.
 
 ```{r box-plot-distributions1, echo=FALSE, fig.cap="Box plot distributions. Source: https://www.autodeskresearch.com/publications/samestats"}
+#| label: fig-box-plot-distributions1
 include_graphics("figures/boxplots.gif")
 ```
 
-Figure \@ref(fig:box-plot-distributions1) shows three different distributions that each correspond to the same boxplot.
+@fig-box-plot-distributions1 shows three different distributions that each correspond to the same boxplot.
 
 If there is not too much data, I recommend to plot jittered individual data points instead. If you do have a lot of data points, then violin plots can be helpful.
 
 ```{r box-plot-distributions2, echo=FALSE, fig.cap="Boxplot distributions. Source: https://www.autodeskresearch.com/publications/samestats"}
+#| label: fig-box-plot-distributions2
 include_graphics("figures/box_violin.gif")
 ```
 
-Figure \@ref(fig:box-plot-distributions2) shows the same raw data represented as jittered dots, boxplots, and violin plots.
+@fig-box-plot-distributions2 shows the same raw data represented as jittered dots, boxplots, and violin plots.
 
 #### Violin plots
 
@@ -231,7 +238,7 @@ ggplot(data = df.diamonds,
 
 #### Practice plot 1
 
-Try to make the plot shown in Figure \@ref(fig:visualization2-practice1). Here is a tip:
+Try to make the plot shown in @fig-visualization2-practice1. Here is a tip:
 
 -   For the data argument in `ggplot()` use: `df.diamonds[1:10000, ]` (this selects the first 10000 rows).
 
@@ -240,6 +247,7 @@ Try to make the plot shown in Figure \@ref(fig:visualization2-practice1). Here i
 ```
 
 ```{r visualization2-practice1, echo=FALSE, fig.cap='Practice plot 1.'}
+#| label: fig-visualization2-practice1
 include_graphics("figures/vis2_practice_plot1.png")
 ```
 
@@ -775,9 +783,10 @@ snippet sndf
 
 To make a bar plot, I now only need to type `sngg` and then hit TAB to activate the snippet. I can then cycle through the bits in the code that are marked with `${Number:word}` by hitting TAB again.
 
-In RStudio, you can change and add snippets by going to Tools --\> Global Options... --\> Code --\> Edit Snippets. Make sure to set the tick mark in front of Enable Code Snippets (see Figure \@ref(fig:code-snippets)). ).
+In RStudio, you can change and add snippets by going to Tools --\> Global Options... --\> Code --\> Edit Snippets. Make sure to set the tick mark in front of Enable Code Snippets (see @fig-code-snippets). ).
 
 ```{r code-snippets, echo=FALSE, fig.cap="Enable code snippets."}
+#| label: fig-code-snippets
 include_graphics("figures/snippets.png")
 ```
 

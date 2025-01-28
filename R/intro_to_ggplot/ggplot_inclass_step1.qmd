@@ -1,7 +1,11 @@
 ---
 title: "GGplot visualization - Part 1"
 author: "Tobi Gerstenberg, Edited by Bria Long & Martin Zettersten"
-format: html
+format: 
+  html:
+    code-fold: true
+    code-tools: true
+    toc: true
 editor: visual
 ---
 
@@ -129,6 +133,7 @@ From now on, all our plots will use what's specified in `theme_classic()`, and t
 I don't know much about diamonds, but I do know that diamonds with a higher `carat` value tend to be more expensive. `color` was a discrete variable with seven different values. `carat`, however, is a continuous variable. We want to see how the price of diamonds differs as a function of the `carat` value. Since we are interested in the relationship between two continuous variables, plotting a bar graph won't work. Instead, let's make a **scatter plot**. Let's put the `carat` value on the x-axis, and the `price` on the y-axis.
 
 ```{r scatter, fig.cap="Scatterplot."}
+#| label: fig-scatter
 ggplot(data = df.diamonds,
        mapping = aes(x = carat,
                      y = price)) +
@@ -137,9 +142,10 @@ ggplot(data = df.diamonds,
 
 Cool! That looks sensible. Diamonds with a higher `carat` value tend to have a higher `price`. Our dataset has `r nrow(diamonds)` rows. So the plot actually shows `r nrow(diamonds)` circles even though we can't see all of them since they overlap.
 
-Let's make some progress on trying to figure out why the diamonds with the better color weren't the most expensive ones on average. We'll add some color to the scatter plot in Figure \@ref(fig:scatter). We color each of the points based on the diamond's color. To do so, we pass another argument to the aesthetics of the plot via `aes()`.
+Let's make some progress on trying to figure out why the diamonds with the better color weren't the most expensive ones on average. We'll add some color to the scatter plot in @fig-scatter. We color each of the points based on the diamond's color. To do so, we pass another argument to the aesthetics of the plot via `aes()`.
 
 ```{r scatter-color, fig.cap="Scatterplot with color."}
+#| label: fig-scatter-color
 ggplot(data = df.diamonds,
        mapping = aes(x = carat,
                      y = price,
@@ -147,7 +153,7 @@ ggplot(data = df.diamonds,
   geom_point()
 ```
 
-Aha! Now we've got some color. Notice how in Figure \@ref(fig:scatter-color) `ggplot2` added a legend for us, thanks! We'll see later how to play around with legends. Form just eye-balling the plot, it looks like the diamonds with the best `color` (D) tended to have a lower `carat` value, and the ones with the worst `color` (J), tended to have the highest carat values.
+Aha! Now we've got some color. Notice how in @fig-scatter-color `ggplot2` added a legend for us, thanks! We'll see later how to play around with legends. Form just eye-balling the plot, it looks like the diamonds with the best `color` (D) tended to have a lower `carat` value, and the ones with the worst `color` (J), tended to have the highest carat values.
 
 So this is why diamonds with better colors are less expensive -- these diamonds have a lower carat value overall.
 
@@ -159,7 +165,7 @@ vignette("ggplot2-specs")
 
 #### Practice plot 1
 
-Make a scatter plot that shows the relationship between the variables `depth` (on the x-axis), and `table` (on the y-axis). Take a look at the description for the `diamonds` dataset so you know what these different variables mean. Your plot should look like the one shown in Figure \@ref(fig:practice-plot1).
+Make a scatter plot that shows the relationship between the variables `depth` (on the x-axis), and `table` (on the y-axis). Take a look at the description for the `diamonds` dataset so you know what these different variables mean. Your plot should look like the one shown in @fig-practice-plot1).
 
 ```{r}
 #enter your plot here
@@ -172,16 +178,18 @@ ggplot(data = df.diamonds,
 ```
 
 ```{r practice-plot1, fig.align="center", fig.cap="Practice plot 1.", fig.height=6, fig.width=8, out.width="95%"}
+#| label: fig-practice-plot1
 include_graphics("figures/vis1_practice_plot1.png")
 ```
 
-**Advanced**: A neat trick to get a better sense for the data here is to add transparency. Your plot should look like the one shown in Figure \@ref(fig:practice-plot1a).
+**Advanced**: A neat trick to get a better sense for the data here is to add transparency. Your plot should look like the one shown in @fig-practice-plot1a.
 
 ```{r}
 # make advanced practice plot 1 here
 ```
 
 ```{r practice-plot1a, fig.align="center", fig.cap="Practice plot 1.", fig.height=6, fig.width=8, out.width="95%"}
+#| label: fig-practice-plot1a
 include_graphics("figures/vis1_practice_plot1a.png")
 ```
 
@@ -237,6 +245,7 @@ Note that I had to use the `fun.data =` argument here instead of `fun =` because
 The order in which we add geoms to a ggplot matters! Generally, we want to plot error bars before the points that represent the means. To illustrate, let's set the color in which we show the means to "red".
 
 ```{r good-figure, fig.cap='This figure looks good. Error bars and means are drawn in the correct order.'}
+#| label: fig-good-figure
 ggplot(data = df.diamonds,
        mapping = aes(x = clarity,
                      y = price)) +
@@ -247,9 +256,10 @@ ggplot(data = df.diamonds,
                color = "red")
 ```
 
-Figure \@ref(fig:good-figure) looks good.
+@fig-good-figure looks good.
 
 ```{r bad-figure, fig.cap='This figure looks bad. Error bars and means are drawn in the incorrect order.'}
+#| label: fig-bad-figure
 # I've changed the order in which the means and error bars are drawn.
 ggplot(df.diamonds,
        aes(x = clarity,
@@ -261,7 +271,7 @@ ggplot(df.diamonds,
                geom = "linerange")
 ```
 
-Figure \@ref(fig:bad-figure) doesn't look good. The error bars are on top of the points that represent the means.
+@fig-bad-figure doesn't look good. The error bars are on top of the points that represent the means.
 
 One cool feature about using `stat_summary()` is that we did not have to change anything about the data frame that we used to make the plots. We directly used our raw data instead of having to make separate data frames that contain the relevant information (such as the means and the confidence intervals).
 
@@ -269,7 +279,7 @@ Let's take a look at two more principles for plotting data that are extremely he
 
 #### Practice plot 2
 
-Make a bar plot that shows the average `price` of diamonds (on the y-axis) as a function of their `clarity` (on the x-axis). Also add error bars. Your plot should look like the one shown in Figure \@ref(fig:practice-plot2).
+Make a bar plot that shows the average `price` of diamonds (on the y-axis) as a function of their `clarity` (on the x-axis). Also add error bars. Your plot should look like the one shown in Figure @fig-practice-plot2.
 
 ```{r}
 #your practice plot here
@@ -278,16 +288,18 @@ Make a bar plot that shows the average `price` of diamonds (on the y-axis) as a 
 ```
 
 ```{r practice-plot2, out.width="90%", fig.align="center", fig.cap="Practice plot 2.", out.width="95%"}
+#| label: fig-practice-plot2
 include_graphics("figures/vis1_practice_plot2.png")
 ```
 
-**Advanced**: Try to make the plot shown in Figure \@ref(fig:practice-plot2a).
+**Advanced**: Try to make the plot shown in @fig-practice-plot2a.
 
 ```{r}
 # make advanced practice plot 2 here
 ```
 
 ```{r practice-plot2a, out.width="90%", fig.align="center", fig.cap="Practice plot 2.", out.width="95%"}
+#| label: fig-practice-plot2a
 include_graphics("figures/vis1_practice_plot2a.png")
 ```
 
@@ -369,23 +381,25 @@ So, still somewhat surprisingly, diamonds with the worst color (J) are more expe
 
 #### Practice plot 3
 
-Recreate the plot shown in Figure \@ref(fig:practice-plot3).
+Recreate the plot shown in @fig-practice-plot3.
 
 ```{r}
 # make practice plot 3 here
 ```
 
 ```{r practice-plot3, out.width="90%", fig.align="center", fig.cap="Practice plot 3.", out.width="95%"}
+#| label: fig-practice-plot3
 include_graphics("figures/vis1_practice_plot3.png")
 ```
 
-**Advanced**: Try to recreate the plot show in in Figure \@ref(fig:practice-plot3a).
+**Advanced**: Try to recreate the plot show in in @fig-practice-plot3a.
 
 ```{r}
 # make advanced practice plot 3 here
 ```
 
 ```{r practice-plot3a, out.width="90%", fig.align="center", fig.cap="Practice plot 3.", out.width="95%"}
+#| label: fig-practice-plot3a
 include_graphics("figures/vis1_practice_plot3a.png")
 ```
 
@@ -485,6 +499,7 @@ So, what does this plot actually show us? Well, J-colored diamonds tend to be wi
 Of course, we could go completely overboard with facets and groups. So let's do it! Let's look at how the average `price` (somewhat more interesting) varies as a function of `color`, `cut`, and `clarity`. We'll put color on the x-axis, and make separate rows for `cut` and columns for `clarity`.
 
 ```{r stretching-it, fig.cap="A figure that is stretching it in terms of information."}
+#| label: fig-stretching-it
 ggplot(data = df.diamonds,
        mapping = aes(y = price,
                      x = color,
@@ -498,19 +513,20 @@ ggplot(data = df.diamonds,
              cols = vars(clarity))
 ```
 
-Figure \@ref(fig:stretching-it) is stretching it in terms of how much information it presents. But it gives you a sense for how to combine the different bits and pieces we've learned so far.
+@fig-stretching-it is stretching it in terms of how much information it presents. But it gives you a sense for how to combine the different bits and pieces we've learned so far.
 
 **Bonus.** Why are we getting a few warning messages here?
 
 #### Practice plot 4
 
-Recreate the plot shown in Figure \@ref(fig:practice-plot4).
+Recreate the plot shown in @fig-practice-plot4.
 
 ```{r}
 # make practice plot 4 here
 ```
 
 ```{r practice-plot4, fig.align="center", fig.cap="Practice plot 4.", out.width="95%"}
+#| label: fig-practice-plot4
 include_graphics("figures/vis1_practice_plot4.png")
 ```
 
@@ -563,6 +579,7 @@ Here, I've set `color = "black"` within the `geom_smooth()` function, and now on
 -   [RStudio IDE](figures/rstudio-ide.pdf) --\> information about RStudio
 -   [RMarkdown](figures/rmarkdown.pdf) --\> information about writing in RMarkdown
 -   [RMarkdown reference](figures/rmarkdown-reference.pdf) --\> RMarkdown reference sheet
+- [Quarto reference](https://quarto.org/docs/guide/) --\> information about writing in Quarto
 -   [Data visualization](figures/visualization-principles.pdf) --\> general principles of effective graphic design
 -   [ggplot2](figures/data-visualization.pdf) --\> specific information about ggplot
 

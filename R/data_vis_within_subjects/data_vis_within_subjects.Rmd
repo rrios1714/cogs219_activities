@@ -1,11 +1,16 @@
 ---
 title: "Visualize Within-Subjects Condition Effects"
 author: "Martin Zettersten"
-date: "2025-01-21"
-output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    code_folding: show
 ---
 
-```{r setup}
+```{r setup, message=F, warning=F}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
 library(tidyverse)
 library(here)
 library(knitr)
@@ -49,7 +54,7 @@ overall_2A_block |>
 
 ```{r, warning=F}
 p <- ggplot(overall_2A_block, aes(block_num,mean_accuracy))+
-  geom_line(aes(linetype=condition,color=condition,group=condition),linewidth=2,position=position_dodge(.05))+
+  geom_line( aes(linetype=condition,color=condition,group=condition),linewidth=2,position=position_dodge(.05))+
   geom_errorbar(aes(ymin=mean_accuracy-sem,ymax=mean_accuracy+sem,color=condition,group=condition),width=0,size=0.75,position=position_dodge(.05))+
   geom_point(aes(fill=condition, shape=condition,color=condition,group=condition),size=4,position=position_dodge(.05))+
   theme_classic(base_size=18)+
@@ -67,8 +72,12 @@ p
 
 ### Advanced: add an image
 
+There are now some really nice packages for adding images to plots, like ggimage.
+
+The general strategy here is to create a data frame (or tibble) that contains the image path and the plot coordinates for where you want those images to go.
+
 ```{r}
-#image database
+#image dataframe
 image_d <- tibble(
   #control positions of x and y axis
   block_num = c(3,3),
@@ -87,13 +96,16 @@ p +
 
 ## Summarize overall within-subjects effects
 
+The plot above is great for visualizing the general condition effect, but it contains no information about the nature of the within-subject effect. Below, we explore one way to visualize both the overall effect of condition, and the within-subject effects (slopes for each participant).
+
 ### By Subject
 
 ```{r}
 subj_2A <- filter(d,experiment=="2A") |> 
-  group_by(condition,subject) |> 
+  group_by(subject,condition) |> 
   summarize(
-    accuracy=mean(is_right))
+    accuracy=mean(is_right)) |> 
+  arrange(subject,condition)
 ```
 
 ### Across Subjects
@@ -105,29 +117,31 @@ overall_2A <- subj_2A |>
             sd_accuracy = sd(accuracy),
             n_obs = n(),
             sem = sd_accuracy / sqrt(n_obs),
-            ci = sem *1.96)
+            ci = sem *1.96) |> 
+  arrange(condition)
 overall_2A |> 
   kable()
 ```
 
 ## Visualize overall within-subject effects
 
+
 ```{r}
 p_within <- subj_2A %>%
   ggplot(aes(condition,accuracy,fill=condition,color=condition))+
   theme_cowplot()+
-  geom_half_violin(data= filter(subj_2A, condition=="low"),position = position_nudge(x = -.1, y = 0), width=1,adjust=1.5,trim = FALSE, alpha = .8,color=NA,side="l")+
-  geom_half_violin(data=filter(subj_2A, condition=="high"),position = position_nudge(x = .1, y = 0), width=1,adjust=1.5,trim = FALSE, alpha = .8,color=NA,side="r")+
-  #geom_line(aes(group=subject),position = position_jitter(width = 0.08,height=0.05, seed = 123),alpha=0.2,color="black") +
-  #geom_point(position = position_jitter(width = 0.08,height=0.05, seed = 123))+
-  geom_line(aes(group=subject),alpha=0.2,color="black") +
-  geom_point()+
-  geom_errorbar(data=overall_2A,aes(y=mean_accuracy,ymin=mean_accuracy-ci,ymax=mean_accuracy+ci),width=0,size=1.5,color="black")+
-  geom_point(data=overall_2A,aes(y=mean_accuracy),size=6,color="black")+
+  #add half violins on either side of the data
+  geom_half_violin(data= filter(subj_2A, condition=="high"),position = position_nudge(x = -.1, y = 0), width=0.8,adjust=1.5,trim = FALSE, alpha = .8,color=NA,side="l")+
+  geom_half_violin(data=filter(subj_2A, condition=="low"),position = position_nudge(x = .1, y = 0), width=0.8,adjust=1.5,trim = FALSE, alpha = .8,color=NA,side="r")+
+  #create lines connecting participants (group=subject)
+  #note the use of seed in position jitter
+  geom_line(aes(group=subject),position = position_jitter(width = 0.04,height=0, seed = 123),alpha=0.2,color="black") +
+  geom_point(position = position_jitter(width = 0.04,height=0, seed = 123),alpha=0.8)+
+  geom_errorbar(data=overall_2A,aes(y=mean_accuracy,ymin=mean_accuracy-ci,ymax=mean_accuracy+ci),width=0,size=1.2,color="black")+
+  geom_point(data=overall_2A,aes(y=mean_accuracy),size=5,color="black")+
   geom_line(data=overall_2A,aes(y=mean_accuracy,group=1),size=2,color="black")+
   scale_color_brewer(palette="Set1")+
   scale_fill_brewer(palette="Set1")+
-  scale_x_discrete(limits=c("low","high"))+
   theme(axis.title.x = element_text(face="bold", size=20),
         axis.text.x  = element_text(size=16),
         axis.title.y = element_text(face="bold", size=20),
@@ -135,7 +149,8 @@ p_within <- subj_2A %>%
         strip.text.x = element_text(size = 16,face="bold"))+
   theme(legend.position="none")+
   xlab("Nameability Condition")+
-  ylab("Training Accuracy")
+  ylab("Training Accuracy")+
+  ylim(0,1)
 p_within
 ```
 
