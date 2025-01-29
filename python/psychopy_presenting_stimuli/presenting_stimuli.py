@@ -10,6 +10,7 @@ positions = {"left": (-200,0),"right": (200,0)}
 #create images
 image_path_1 = os.path.join(os.getcwd(),"stimuli","images","bulbasaur.png")
 image_path_2 = os.path.join(os.getcwd(),"stimuli","images","charmander.png")
+#different operating systems 
 
 image_1 = visual.ImageStim(win,image=image_path_1,size=[200,200],pos=positions["left"])
 image_2 = visual.ImageStim(win,image=image_path_2,size=[200,200],pos=positions["right"])
@@ -21,8 +22,13 @@ image_2.draw()
 #show
 win.flip()
 
+while True:
+    if mouse.isPressedIn(Image1) or mouse.IsPressed2(image_2):
+        response =  mouse.getPost()
+        break 
+
 #wait 5 seconds
-core.wait(5)
+#core.wait(5)
 
 win.close() #close the window
 core.quit() #quit out of the program
