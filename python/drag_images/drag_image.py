@@ -27,7 +27,7 @@ while dragging_timer.getTime() <= max_time:
         bulbie.pos = mouse.getPos()
         field.draw()
         bulbie.draw()
-        bulbie.win.flip()
+        win.flip()
         if dragging_timer.getTime() > max_time:
             break
 
