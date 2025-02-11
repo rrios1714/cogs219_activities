@@ -11,7 +11,7 @@ def get_runtime_vars(vars_to_get,order,exp_version="experiment_code_for_referenc
     else: 
         print('User Cancelled')
 
-def import_trials (trial_filename, col_names=None, separator=','):
+def import_trials(trial_filename, col_names=None, separator=','):
     trial_file = open(trial_filename, 'r')
  
     if col_names is None:

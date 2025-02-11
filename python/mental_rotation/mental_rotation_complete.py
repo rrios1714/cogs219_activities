@@ -39,7 +39,7 @@ trial_path = os.path.join(os.getcwd(),'trials',runtime_vars['subj_code']+'_trial
 trial_list = import_trials(trial_path)
 print(trial_list)
 
-#open file to write data too and store a header
+#open file to write data to and store a header
 data_file = open(os.path.join(os.getcwd(),'data',runtime_vars['subj_code']+'_data.csv'),'w')
 header = separator.join(["subj_code","seed", 'image_name','item','angle','match','correct_response','response','rt'])
 data_file.write(header+'\n')

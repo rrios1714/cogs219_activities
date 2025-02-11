@@ -4,3 +4,5 @@
 .Ruserdata
 .DS_Store
 python/intro_to_psychopy/simple_rt_complete.py
+python/stroop_task/stroop_task_complete.py
+python/stroop_task/generate_trials.py
