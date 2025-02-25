@@ -54,17 +54,23 @@ figuredata$PID <- as.factor(figuredata$PID)
 
 Build regression model and view the summary output to look at the residuals
 
+### Intercept only model
+
 ```{r}
 ols.mod_intercept <- lm(yvar ~ 1, data = figuredata)
 
 summary(ols.mod_intercept)
 ```
 
+### Uncentered predictor (simple regression)
+
 ```{r}
 ols.mod <- lm(yvar ~ xvar, data = figuredata)
 
 summary(ols.mod)
 ```
+
+### Centered predictor (what changes?)
 
 ```{r}
 figuredata <- figuredata %>%
@@ -89,9 +95,10 @@ summary(ols.mod_c)
 
 ```
 
-
+### Plot
 
 Build a fixed effects only plot
+
 ```{r}
 ggplot(figuredata, aes(x = xvar, y = yvar)) + 
   stat_smooth(method = lm, se = FALSE, linetype = "solid", 

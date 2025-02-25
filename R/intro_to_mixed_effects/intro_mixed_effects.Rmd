@@ -529,7 +529,32 @@ We find a significant effect of modality on condition, `r apa_print(acc_mod_c)$f
 
 ## Plotting model predictions
 
-[section to be added]
+Here's a quick example of how you can use the `predict()` function to plot model predictions from lmer models. 
+The `predict()` function is very flexible and can be used with a wide variety of model objects.
+The general strategy is to set up a basic data frame with all of the key levels of the predictors of interest, and then use the `predict()` function to generate predictions for each level of the predictor.
+Then, you can plot those predictions (e.g., using `ggplot2`).
+
+### Plot the predictions for the interaction model
+
+```{r}
+#set up data frame
+#if there are multiple predictors, we can use expand.grid to generate all combinations
+pX <- expand.grid(modality = unique(rt_data_interaction$modality),
+                 SNR = unique(rt_data_interaction$SNR))
+# make the predictions, with confidence intervals
+# use re.form = NA to ignore the random effects and just focus on the fixed effects
+predictions <- predict(rt_int,newdata=pX,re.form=NA, se.fit=TRUE)
+pX$pred <- predictions$fit
+pX$se <- predictions$se.fit
+
+#plot
+ggplot(pX,aes(x=modality,y=pred,group=SNR,color=SNR))+
+  geom_point(size=2, position=position_dodge(.1))+
+  geom_line(position=position_dodge(.1))+
+  geom_errorbar(aes(ymin=pred-1.96*se,ymax=pred+1.96*se),width=0,position=position_dodge(.1))+
+  ylab("RT (in ms)")
+
+```
 
 ## Testing against chance using offsets
 
