@@ -55,10 +55,41 @@ figuredata$PID <- as.factor(figuredata$PID)
 Build regression model and view the summary output to look at the residuals
 
 ```{r}
+ols.mod_intercept <- lm(yvar ~ 1, data = figuredata)
+
+summary(ols.mod_intercept)
+```
+
+```{r}
 ols.mod <- lm(yvar ~ xvar, data = figuredata)
 
 summary(ols.mod)
 ```
+
+```{r}
+figuredata <- figuredata %>%
+  mutate(
+    xvar_c = xvar - mean(xvar)
+  )
+
+ols.mod_c <- lm(yvar ~ xvar_c, data = figuredata)
+
+summary(ols.mod_c)
+```
+
+```{r}
+figuredata <- figuredata %>%
+  mutate(
+    yvar_adj = yvar - 700
+  )
+
+ols.mod_c <- lm(yvar_adj ~ xvar_c, data = figuredata)
+
+summary(ols.mod_c)
+
+```
+
+
 
 Build a fixed effects only plot
 ```{r}

@@ -75,8 +75,7 @@ head(rt_data)
 # Fit a linear mixed-effects model
 
 ```{r}
-rt_mod <- lmer(RT ~ 1 + modality + 
-                      (1 + modality|PID), 
+rt_mod <- lmer(RT ~ 1 + modality + (1+modality|PID), 
                     data = rt_data)
 ```
 
@@ -130,6 +129,7 @@ lmer_output %>%
     results="asis") 
 ```
 
+
 ## Interpret the output
 
 ### Fixed Effects
@@ -152,13 +152,16 @@ We are using `lmerTest()` to estimate the p-values for the fixed effects. The un
 
 Another common way that people often use to estimate p-values in mixed-effects models is to compare the full model to a null model that includes all of the same parameters *except* the key parameter of interest (in this instance, modality condition).
 
-Full model: $RT ~ 1 + modality + (1 + modality|PID)$ Null model: $RT ~ 1 + (1 + modality|PID)$
+Full model: $RT \sim 1 + modality + (1 + modality|PID)$
+
+Null model: $RT \sim 1 + (1 + modality|PID)$
 
 ```{r}
 # fit the null model
 rt_mod_null <- lmer(RT ~ 1 + 
                       (1 + modality|PID), 
                     data = rt_data)
+
 ```
 
 Now, we use the `anova()` command to compare the full model to the null model using a likelihood ratio test.
@@ -185,7 +188,7 @@ Compare this outcome to the p-value estimated using the Satterthwaite approximat
 
 ### Example description
 
-To investigate the effect of modality on reaction time, we fit a linear mixed-effects model predicting reaction time from modality condition (dummy coded). We included a by-participant random intercept and by-participant random slope for modality. Degrees of freedom were estimated using the Satterthwaite approximation. Reaction times were higher in the audio-visual condition than in the audio-only condition, `r lmer_output$full_result$modalityAudiovisual`.
+To investigate the effect of modality on reaction time, we fit a linear mixed-effects model predicting reaction time from modality condition (dummy coded; 0 = audio-only; 1 = audio-visual). We included a by-participant random intercept and by-participant random slope for modality. Degrees of freedom were estimated using the Satterthwaite approximation. Reaction times were higher in the audio-visual condition than in the audio-only condition, `r lmer_output$full_result$modalityAudiovisual`.
 
 ### Recoding variables to make output more interpretable
 
@@ -196,7 +199,7 @@ Always center your predictors and code them such that a unit change is meaningfu
 ```{r}
 rt_data <- rt_data %>%
   mutate(
-    modality_c = ifelse(modality=="Audio-only",-0.5,0.5)
+    modality_c = ifelse(modality=="Audio-only",-1,1)
   )
 ```
 
