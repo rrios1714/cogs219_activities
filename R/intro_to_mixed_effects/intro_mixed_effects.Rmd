@@ -1,0 +1,588 @@
+---
+title: "Introduction to Mixed-Effects Models"
+author: "Martin Zettersten"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+#  bibliography: references.bib  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set()
+```
+
+This code borrows heavily from the following sources:
+
+-   Brown VA. An Introduction to Linear Mixed-Effects Modeling in R. Advances in Methods and Practices in Psychological Science. 2021;4(1). <doi:10.1177/2515245920960351>
+    -   Associated OSF page with data and code: <https://osf.io/v6qag/>
+-   Winter, B. (2013). Linear models and linear mixed effects models in R with linguistic applications. arXiv. <http://arxiv.org/> abs/1308.5499
+-   For a more in-depth guide, see: Brauer, M., & Curtin, J. (2018). Linear mixed-effects models and the analysis of nonindependent data: A unified framework to analyze categorical and continuous independent variables that vary within-subjects and/or within-items. *Psychological Methods, 23*(3), 389-411. <https://doi.org/10.1037/met0000159>
+
+# Preliminaries
+
+Install packages if they aren't already installed (notice the nice compact code here that avoids re-installing the package if it already is found in your R environment).
+
+```{r}
+if (!("knitr" %in% installed.packages())) install.packages("knitr")
+if (!("lme4" %in% installed.packages())) install.packages("lme4")
+if (!("lmerTest" %in% installed.packages())) install.packages("lmerTest")
+if (!("tidyverse" %in% installed.packages())) install.packages("tidyverse")
+if (!("broom.mixed" %in% installed.packages())) install.packages("broom.mixed")
+if (!("afex" %in% installed.packages())) install.packages("afex")
+if (!("papaja" %in% installed.packages())) install.packages("papaja")
+if (!("here" %in% installed.packages())) install.packages("here")
+if (!("performance" %in% installed.packages())) install.packages("performance")
+```
+
+Load libraries and set up paths
+
+```{r warning=F,message=F}
+library(lme4)
+library(lmerTest)
+library(tidyverse)
+library(broom.mixed)
+library(afex)
+library(papaja)
+library(knitr)
+library(here)
+library(performance)
+
+data_path <- here("data")
+```
+
+# General problem
+
+Many of the datasets we work with in cognitive science have a particular hierarchical structure: they are clustered within units, such that
+
+# Inspect the data
+
+Load data, and name that object "rt_data"
+
+```{r}
+rt_data <- read_csv(here(data_path,"rt_dummy_data.csv"))
+```
+
+View the first six rows of the data frame
+
+```{r}
+head(rt_data)
+```
+
+# Fit a linear mixed-effects model
+
+```{r}
+rt_mod <- lmer(RT ~ 1 + modality + (1+modality|PID), 
+                    data = rt_data)
+```
+
+Inspect the summary output.
+
+```{r}
+summary(rt_mod)
+```
+
+Let's try to make sense of some of the key pieces.
+
+Focus first on the fixed effects model summary. This looks a lot like the output we get from a linear regression model.
+
+## Generate pretty output
+
+There's a growing number of excellent options for quickly printing lovely APA-style model outputs and regression tables
+
+### Option 1: `tidy()` from `broom.mixed`
+
+First, let's use some nice R functions for getting cleaner output of the model. For this, we can use the nifty `broom` package.
+
+```{r}
+rt_mod %>%
+  tidy() %>%
+  filter(effect=="fixed") %>%
+  select(-group,-effect) %>%
+  kable(digits=8)
+```
+
+### Option 2: `apa_print()` from `papaja`
+
+First, use the `apa_print()` method from `papaja` to get a structured object representing the model outputs in APA-friendly format
+
+```{r}
+lmer_output <- apa_print(rt_mod)
+```
+
+This object now contains summaries of the model output formatted in a way that they directly print out in APA format in an R markdown document. For example, we found a significant effect of modality on reaction time, `r lmer_output$full_result$modalityAudiovisual`.
+
+We can also output a (basically) publication-ready regression table.
+
+```{r}
+lmer_output %>%
+  #optionally: give columns desired names
+  label_variables(
+  Term = "Model Coefficient"
+  ) %>%
+  apa_table(
+    caption = "Estimates for linear mixed-effects model predicting",
+    note = "Degrees of freedom estimated using the Satterthwaite approximation.",
+    results="asis") 
+```
+
+
+## Interpret the output
+
+### Fixed Effects
+
+The fixed effects can be interpreted very similarly to a typical linear regression model. Intercepts reflect the model estimate when all other predictors are set to zero. Estimates for simple predictors are slopes, reflecting how the DV is estimated to increase for a unit-change in the predictor (if there are interactions, this is the slope at when all other predictors are set to zero). Interactions reflect how the slope associated with a given predictor changes as a function of another variable.
+
+Note that in addition to the summary command, R also gives us a function to extract the fixed effects directly.
+
+```{r}
+fixef(rt_mod)
+```
+
+### Estimating p-values for fixed effects
+
+#### Approximating df
+
+We are using `lmerTest()` to estimate the p-values for the fixed effects. The underlying problem for estimating p-values is that it's not clear what degrees of freedom make sense for a mixed-effects model The `lmerTest` uses a particular method to estimate the p-values, called the Satterthwaite approximation. Another possible method for estimating df's (probably more robust) is the Kenward-Roger approximation, which is implemented in the `pbkrtest` package.
+
+#### Null model approach (w/ likelihood ratio test)
+
+Another common way that people often use to estimate p-values in mixed-effects models is to compare the full model to a null model that includes all of the same parameters *except* the key parameter of interest (in this instance, modality condition).
+
+Full model: $RT \sim 1 + modality + (1 + modality|PID)$
+
+Null model: $RT \sim 1 + (1 + modality|PID)$
+
+```{r}
+# fit the null model
+rt_mod_null <- lmer(RT ~ 1 + 
+                      (1 + modality|PID), 
+                    data = rt_data)
+
+```
+
+Now, we use the `anova()` command to compare the full model to the null model using a likelihood ratio test.
+
+```{r}
+anova(rt_mod_null,rt_mod)
+```
+
+Let's inspect this a bit and see if we can make sense of the main bits of input.
+
+Just for fun and to demystify a bit, here's where the chisquared statistic and the p-value are coming from.
+
+```{r}
+#compute chi-squared value
+chi_sq <- 2 * (logLik(rt_mod, REML=FALSE) - logLik(rt_mod_null, REML=FALSE))
+chi_sq
+#get p-value (why df=1?)
+pchisq(chi_sq, df=1, lower.tail=FALSE)
+```
+
+Note that the `summary()` command also outputs the results of a comparison of the full model to a null model "under the hood". This approach just makes that process more explicit, and then conducts a slightly different test for estimating the p-value (the likelihood ratio test).
+
+Compare this outcome to the p-value estimated using the Satterthwaite approximation. How similar are the results?
+
+### Example description
+
+To investigate the effect of modality on reaction time, we fit a linear mixed-effects model predicting reaction time from modality condition (dummy coded; 0 = audio-only; 1 = audio-visual). We included a by-participant random intercept and by-participant random slope for modality. Degrees of freedom were estimated using the Satterthwaite approximation. Reaction times were higher in the audio-visual condition than in the audio-only condition, `r lmer_output$full_result$modalityAudiovisual`.
+
+### Recoding variables to make output more interpretable
+
+A good general heuristic to keep in mind:
+
+Always center your predictors and code them such that a unit change is meaningfully interpretable.
+
+```{r}
+rt_data <- rt_data %>%
+  mutate(
+    modality_c = ifelse(modality=="Audio-only",-1,1)
+  )
+```
+
+Let's now refit the model with modality centered.
+
+```{r}
+rt_mod_c <- lmer(RT ~ 1 + modality_c + 
+                      (1 + modality_c|PID), 
+                    data = rt_data)
+summary(rt_mod_c)
+```
+
+What's changed compared to the model in which modality is not centered? (hint: check out and compare the estimates between the two models)
+
+Some advantages of centering include: 
+
+- improves interpretability 
+
+- avoids worst risks of misinterpretation when fitting interaction models - improves likelihood that linear mixed-effects models will converge (helps reduce covariance between random effects parameters) 
+
+- depending on centering strategy (within- vs. between-participants), can ensure that fixed effects are clearly interpretable as within-participant effects (see also Simpson's paradox).
+
+## Random Effects
+
+Let's dig deeper into the model to understand what exactly the random effects are doing. The random effects capture how much the effects vary at different levels of my random units. In other words, in this case, the random effects capture estimates at the level of individual participants. We're going to use the `lattice` package to easily visualize this.
+
+First, R provides a few convenience functions for extracting the random effects. The first we'll look at is `coef()`.
+
+```{r}
+coef(rt_mod_c)
+```
+
+`ranef` is similar, but it instead shows the variation for each participant around the fixed effect.
+
+```{r}
+ranef(rt_mod_c)
+```
+
+### Visualizing random effects
+
+Now, we can visualize the variation in random effects using `lattice`'s `dotplot`.
+
+```{r}
+lattice::dotplot(coef(rt_mod_c))
+```
+
+For each row in the plot, we see:
+
+- the intercept estimate for each participant, i.e., their estimated average reaction time (note that this interpretation hinges on our centering strategy! What would be the interpretation of the random intercepts for our initial `rt_mod` model?)
+
+- the slope estimate for each participant, i.e. how much their reaction time increases on average between the audio-only condition and audio-visual condition.
+
+What values should the intercepts/slopes (approximately) be centered around?
+
+```{r}
+#check
+mean(coef(rt_mod_c)$PID$modality_c)
+mean(coef(rt_mod_c)$PID$`(Intercept)`)
+```
+
+We can also use `ranef` and `dotplot` to focus on variability around the fixed effects. 
+Notice how the effects are now centered around zero.
+
+```{r}
+lattice::dotplot(ranef(rt_mod_c))
+```
+
+### Visualizing participant-level variation
+
+Let's visualize the effect for each participant. Can you try to map onto this figure what the random intercept and the random slope for modality represent?
+
+```{r}
+ggplot(rt_data,aes(modality_c,RT))+
+  geom_point()+
+  geom_smooth(method="lm",se=F)+
+  facet_wrap(~PID)
+```
+
+# Multiple random effects
+
+If you take a close look at the data, you might notice that there is another potential source of non-independence: the particular words (in the `stim` column). We have multiple observations for each word in our dataset. (Incidentally, this is a problem that has long been recognized in psycholinguistics. One of the first to point this out was Herb Clark in the '70s. See Clark, H. (1973). "The Language-as-Fixed-Effect Fallacy: A Critique of Language Statistics in Psychological Research", *Journal of Verbal Learning and Verbal Behavior, 12*, 335-359.) Ideally, we'd like to have a way to simultaneously account not only for non-independence due to participants *AND* non-independence due to words.
+
+```{r}
+rt_data %>%
+  arrange(stim) %>%
+  head()
+```
+
+The elegance of linear mixed-effects regression is that we can easily extend our model to include as many additional random effects units as we need in order to accurately capture the clustered nature of our design. Note that we can have random effects for basically any factor! Participants and stimuli, but also schools, countries, dataset sources (think of ManyLabs/ ManyBabies studies), .... Here's how we can include random effects due to item.
+
+```{r}
+rt_mod_c_full <- lmer(RT ~ 1 + modality_c + 
+                      (1 + modality_c|PID) + (1 + modality_c|stim), 
+                    data = rt_data)
+summary(rt_mod_c_full)
+```
+
+Compare the output between this model and previous models. What's changed?
+
+Notice that we included both a random intercept for stimuli and a random slope for condition. Do you have an intuition about why we might have made this choice? (more below)
+
+Note that we can extend this logic to include **as many types of random effects as we need to capture the structure of our data**! The only limiting factor is whether we have enough data to capture the complexity of our model structure (see more below for dealing with convergence issues and pruning random effects).
+
+# Choosing random effects structure: keep it maximal
+
+A general rule of thumb (Barr et al., 2013) is to keep the random effects structure "maximal", that is, to include the full random effects structure that is justified by the design of your experiment/ what you know about the data generating process. Otherwise, you are likely going to severely inflate Type I error (see e.g. this blog post for a helpful simulation: <https://benediktehinger.de/blog/science/lmm-type-1-error-for-1condition1subject/>.
+
+How do you determine the maximal random effects structure? As a general rule, you can apply the following principles:
+
+1. If there are multiple observations for a given unit (e.g., multiple observations per participant), you need a by-unit random intercept.
+
+2. If there are multiple observations for a given predictor (e.g. condition) within unit, you need a by-unit random slope for that predictor (e.g., if condition varies within participant, include a by-participant random slope for condition. If condition varies between participant, do not include a by-participant random slope for condition).
+
+3. Include by unit random slopes for interactions in which all participating predictors vary within-unit (e.g., for an interaction between two predictors that vary within participant, include a by-participant random slope for their interaction). 
+
+See also Table 11 in Brauer & Curtin (2018).
+
+# Investigating model performance
+
+It's good practice to check the extent to which model assumptions for our mixed-effects model are fulfilled. The `performance` package provides a bunch of nice convenience tools for assessing the most important model assumptions. Many of the key assumptions are similar to a linear regression model, namely - linearity of residuals - variance is constant - normality of residuals The main difference is that we can now inspect assumptions at multiple levels of the model (also for random effects).
+
+It's also useful to get a diagnosis of influential observations (observations that, when removed, lead to large changes in the estimates).
+
+```{r}
+performance::check_model(rt_mod_c,detrend=FALSE)
+```
+
+Check out details in the function documentation
+
+```{r}
+?performance::check_model
+```
+
+Why do you think the residuals might be non-normal? What might we do to try to address it?
+
+```{r}
+#RT data is skewed
+rt_data %>%
+  ggplot(aes(RT))+
+  geom_histogram()
+
+#try log-transforming RT data
+rt_data <- rt_data %>%
+   mutate(
+     log_rt = log(RT)
+   )
+
+#replot
+rt_data %>%
+  ggplot(aes(log_rt))+
+  geom_histogram()
+```
+
+```{r}
+rt_mod_log_c <- lmer(log_rt ~ 1 + modality_c + 
+                      (1 + modality_c|PID), 
+                    data = rt_data)
+check_model(rt_mod_log_c,detrend=FALSE)
+
+#now a little better - still some non-normality in the left tail of the residuals
+```
+
+# Interactions
+
+```{r}
+rt_data_interaction <- read_csv(here(data_path,"rt_dummy_data_interaction.csv"))
+head(rt_data_interaction)
+```
+
+Note that the data now contains an extra parameter, SNR (signal-to-noise ratio), at two levels, easy and hard.
+
+## Fit a model with levels dummy coded
+
+First, let's fit a naive interaction model. For ease of discussion, I'm going to stick with just the by-participant random effects, but in principle, we want to include the random effects for stim too.
+[if there's time: discuss the misspecification of the random effects structure in the Brown introduction, and the consequences for significance.]
+
+```{r}
+rt_int <- lmer(RT ~ 1 + modality * SNR + 
+                      (1 + modality * SNR|PID), 
+                    data = rt_data_interaction)
+summary(rt_int)
+```
+
+Note that by default, R will dummy code categorical variables alphabetically, so the alphabetically first name will be the reference level (coded as 0) and the second level will be coded as 1. 
+
+What is the consequence of this coding approach for the interpretation of the interaction term?
+What is the consequence for the interpretation of the main effects?
+
+## Fit a model with levels flipped
+
+Let's reverse the dummy coding, so now the other level serves as the reference level.
+
+```{r}
+rt_data_interaction$modality_rev <- ifelse(rt_data_interaction$modality == "Audiovisual", 0, 1)
+rt_data_interaction$SNR_rev <- ifelse(rt_data_interaction$SNR == "Hard", 0, 1)
+```
+
+Fit the model
+
+```{r}
+rt_int_rev <- lmer(RT ~ 1 + modality_rev * SNR_rev + 
+                      (1 + modality_rev * SNR_rev|PID), 
+                    data = rt_data_interaction)
+summary(rt_int_rev)
+```
+
+What changes?
+What doesn't change?
+
+## Fit the model with levels centered (right way!!)
+
+Now, let's fit the model with centered predictors. **This is the way you should typically fit an interaction model.** This is because once the predictor variables are centered, we can now safely interpret the lower-order effects as "main" effects, i.e. as the effect averaging across the other predictor.
+
+```{r}
+rt_data_interaction$modality_c <- ifelse(rt_data_interaction$modality == "Audiovisual", 0.5, -0.5)
+rt_data_interaction$SNR_c <- ifelse(rt_data_interaction$SNR == "Hard", 0.5, -0.5)
+```
+
+Fit the model
+
+```{r}
+rt_int_c <- lmer(RT ~ 1 + modality_c * SNR_c + 
+                      (1 + modality_c * SNR_c|PID), 
+                    data = rt_data_interaction)
+summary(rt_int_c)
+```
+
+Compare the modality effect to the effects in the centered model including only modality. What do you notice?
+
+```{r}
+summary(rt_mod_c)
+```
+
+# More advanced topics
+
+## Dealing with convergence issues
+
+### Testing out alternative optimizers
+
+```{r}
+# allFit() tries out all possible optimizers
+# This can take a while to fit, depending on the complexity of the model
+#all_fit <- lme4::allFit(rt_mod)
+#all_fit
+```
+
+### General remedies
+
+See Table 17 in Brauer & Curtin (2018) for a step-by-step approach to dealing with convergence issues.
+
+### Pruning random effects
+
+**General principles:**
+
+1.  Remove random effects of lesser theoretical interest first.
+2.  Remove covariances before removing random intercepts and slopes of interest.
+3.  Try to avoid removing random slopes for key predictors.
+
+For a principled example of how you could approach this, see e.g. the planned analysis section of ManyBabies 5 (Supplementary Materials, S4).
+https://osf.io/preprints/psyarxiv/ck3vd_v1
+
+### Demonstrating robustness of key effects across various random effects specifications
+
+Another possible strategy to random effects specification in general is to show that the effect of interest is robust across many different possible specifications of the random effects structure (i.e., fit the model for all possible random effect specifications and show the distribution of the estimates. Is the key estimate (almost) always similar in magnitude (and significance)?)
+
+## Power Analysis
+
+Here are some helpful resources for conducting simulation-based power analyses in a mixed-effects framework:
+
+- `faux` package in R: https://debruine.github.io/faux/
+
+- tutorial: https://4ccoxau.github.io/PowerAnalysisWorkshopManyBabies/
+
+- `simr` package for glmer models: https://cran.r-project.org/web/packages/simr/index.html
+
+## Effect sizes
+
+Resources:
+
+- https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#how-do-i-compute-a-coefficient-of-determination-r2-or-an-analogue-for-glmms
+
+- `r2mlm`: https://github.com/mkshaw/r2mlm
+
+- R2 using the `performance` package: https://easystats.github.io/performance/articles/r2.html
+
+For example, here's how you can compute a conditional and marginal R2 for our initial model
+
+```{r}
+performance::r2(rt_mod)
+```
+
+## Logistic mixed-effects models
+
+One of the things that makes the general linear model such a powerful framework is that you can extend it model a wide variety of distributions, by introducing a link function in between the linear predictor and the response variable.
+`lme4` contains a function for building models of this kind, called `glmer()` (*generalized* linear mixed effects model).
+
+For example, if we want to model a binary outcome, we can use a logistic link function to model the probability of a binary outcome.
+
+Here's a quick example.
+
+Let's say we want to model accuracy (a binary variable; correct = 1; incorrect = 0).
+We can use the `glmer` function in R, specifying the family argument as "binomial", in order to fit a logistic mixed-effects model
+
+```{r}
+acc_data <- read_csv(here(data_path,"acc_dummy_data.csv"))
+#Make PID and stim factors
+acc_data$PID <- as.factor(acc_data$PID)
+acc_data$stim <- as.factor(acc_data$stim)
+
+#center modality
+acc_data <- acc_data %>%
+  mutate(
+    modality_c = ifelse(modality=="Audio-only",-0.5,0.5)
+  )
+
+#fit model
+acc_mod_c <- glmer(acc ~ 1 + modality_c + 
+                        (1 + modality_c|PID) + (1 + modality_c|stim), 
+                      data = acc_data, 
+                      family = binomial)
+summary(acc_mod_c)
+```
+
+For logistic mixed-effects models, it's generally fine to use the z-values and associated p-values to estimate significance of fixed effects.
+
+We find a significant effect of modality on condition, `r apa_print(acc_mod_c)$full_result$modality_c`.
+
+## Plotting model predictions
+
+Here's a quick example of how you can use the `predict()` function to plot model predictions from lmer models. 
+The `predict()` function is very flexible and can be used with a wide variety of model objects.
+The general strategy is to set up a basic data frame with all of the key levels of the predictors of interest, and then use the `predict()` function to generate predictions for each level of the predictor.
+Then, you can plot those predictions (e.g., using `ggplot2`).
+
+### Plot the predictions for the interaction model
+
+```{r}
+#set up data frame
+#if there are multiple predictors, we can use expand.grid to generate all combinations
+pX <- expand.grid(modality = unique(rt_data_interaction$modality),
+                 SNR = unique(rt_data_interaction$SNR))
+# make the predictions, with confidence intervals
+# use re.form = NA to ignore the random effects and just focus on the fixed effects
+predictions <- predict(rt_int,newdata=pX,re.form=NA, se.fit=TRUE)
+pX$pred <- predictions$fit
+pX$se <- predictions$se.fit
+
+#plot
+ggplot(pX,aes(x=modality,y=pred,group=SNR,color=SNR))+
+  geom_point(size=2, position=position_dodge(.1))+
+  geom_line(position=position_dodge(.1))+
+  geom_errorbar(aes(ymin=pred-1.96*se,ymax=pred+1.96*se),width=0,position=position_dodge(.1))+
+  ylab("RT (in ms)")
+
+```
+
+## Testing against chance using offsets
+
+One question you might sometimes run into is how to test against chance, especially if
+
+- your chance level is different from zero
+
+- your chance level varies from trial to trial (!)
+
+How can you adjust the intercept of your model to test against chance in these instances?
+
+The general answer is to use the (very flexible) `offset()` function. Here's a short walkthrough illustrating how you can use the function to adjust your intercept so that it reflects a test against chance.
+<https://mzettersten.github.io/r_walkthroughs/adjusting_offset/adjustingChanceLevels.html>
+
+## Categorical variables with more than 2 levels
+
+For a quick walkthrough illustrating a few different ways to approach categorical variables with more than 2 levels, see: <https://mzettersten.github.io/r_walkthroughs/cat_three_levels/cat_three_levels.html>
+
+For more detailed treatments of contrast coding, see:
+
+- https://debruine.github.io/faux/articles/contrasts.html
+
+- Schad et al. (2020). How to capitalize on a priori contrasts in linear (mixed) models: A tutorial. *Journal of Memory and Language, 110*, 104038. https://doi.org/10.1016/j.jml.2019.104038
+
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

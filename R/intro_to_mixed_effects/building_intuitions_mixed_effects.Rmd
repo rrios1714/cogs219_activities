@@ -1,0 +1,212 @@
+---
+title: "Building Intuitions about Mixed-Effects Models"
+author: "Martin Zettersten"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This code is adapted from Violet Brown's introduction to mixed-effects modeling:
+
+Brown VA. An Introduction to Linear Mixed-Effects Modeling in R. Advances in Methods and Practices in Psychological Science. 2021;4(1). <doi:10.1177/2515245920960351>
+
+```{r}
+if (!("knitr" %in% installed.packages())) install.packages("knitr")
+if (!("lme4" %in% installed.packages())) install.packages("lme4")
+if (!("lmerTest" %in% installed.packages())) install.packages("lmerTest")
+if (!("tidyverse" %in% installed.packages())) install.packages("tidyverse")
+if (!("here" %in% installed.packages())) install.packages("here")
+```
+
+Load libraries and set up paths
+
+```{r warning=F,message=F}
+library(knitr)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(here)
+
+data_path <- here("data")
+```
+
+# Fixed-effects only, random intercepts, and random slopes plots
+
+Load data
+```{r}
+figuredata <- read_csv(here(data_path,"figure_data.csv"))
+```
+
+Make PID a factor
+```{r}
+figuredata$PID <- as.factor(figuredata$PID)
+```
+
+## Fixed-effects only regression plot
+
+Build regression model and view the summary output to look at the residuals
+
+### Intercept only model
+
+```{r}
+ols.mod_intercept <- lm(yvar ~ 1, data = figuredata)
+
+summary(ols.mod_intercept)
+```
+
+### Uncentered predictor (simple regression)
+
+```{r}
+ols.mod <- lm(yvar ~ xvar, data = figuredata)
+
+summary(ols.mod)
+```
+
+### Centered predictor (what changes?)
+
+```{r}
+figuredata <- figuredata %>%
+  mutate(
+    xvar_c = xvar - mean(xvar)
+  )
+
+ols.mod_c <- lm(yvar ~ xvar_c, data = figuredata)
+
+summary(ols.mod_c)
+```
+
+```{r}
+figuredata <- figuredata %>%
+  mutate(
+    yvar_adj = yvar - 700
+  )
+
+ols.mod_c <- lm(yvar_adj ~ xvar_c, data = figuredata)
+
+summary(ols.mod_c)
+
+```
+
+### Plot
+
+Build a fixed effects only plot
+
+```{r}
+ggplot(figuredata, aes(x = xvar, y = yvar)) + 
+  stat_smooth(method = lm, se = FALSE, linetype = "solid", 
+              color = "black", linewidth = .6) +
+  geom_point(aes(shape = PID), size = 3.25, color = "grey70") +
+  scale_shape_manual(values = c(15, 16, 17, 18)) + 
+  geom_segment(aes(x = xvar, xend = xvar, 
+                   y = yvar, yend = fitted(ols.mod)), 
+               color = "grey70") +
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 750, 1500, 2250, 3000), 
+                     limits = c(0, 2600)) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 2, 4, 6, 8, 10), 
+                     limits = c(-0.5, 10.5)) +
+  theme(panel.background = element_blank(),         
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        legend.position = "none",
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 14)) +
+  labs (x = "Word Difficulty", y = "Response Time") 
+```
+
+
+## Random intercepts plot 
+
+Build the model with random intercepts and view the summary output to look at the residuals
+
+```{r}
+random_intercepts.mod <- lmer(yvar ~ 1 + xvar + (1|PID), data = figuredata)
+
+summary(random_intercepts.mod)
+```
+
+Extract the fixed effects estimates for the intercept and slope
+```{r}
+model_intercept <- as.numeric(fixef(random_intercepts.mod)[1])
+model_slope <- as.numeric(fixef(random_intercepts.mod)[2])
+```
+
+Extract the individual participant intercepts for this model and add it to the data frame
+```{r}
+figuredata$intercepts <- rep(coef(random_intercepts.mod)$PID[,1], each = 4)
+```
+
+Build random intercepts plot
+```{r}
+ggplot(figuredata, aes(x = xvar, y = yvar)) + 
+  geom_abline(slope = model_slope, intercept = model_intercept, 
+              linetype = "solid", color = "black", size = 1) +
+  geom_abline(mapping = aes(slope = model_slope, intercept = intercepts,color=PID), 
+              linetype = "dashed", size = .4) + 
+  geom_point(aes(shape = PID,color=PID), size = 3.25) + 
+  scale_shape_manual(values = c(15, 16, 17, 18)) + 
+  geom_segment(aes(x = xvar, xend = xvar, 
+                   y = yvar, yend = fitted(random_intercepts.mod),color=PID)) +
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 500, 1000, 1500, 2000, 2500), 
+                     limits = c(0, 2600)) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 2, 4, 6, 8, 10), 
+                     limits = c(-0.5, 10.5)) +
+  theme(panel.background = element_blank(),         
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        legend.position = "none",
+        axis.text = element_text(size = 14), 
+        axis.title = element_text(size = 14)) +
+  labs (x = "Word Difficulty", y = "Response Time") 
+```
+
+## Random intercepts and slopes plot
+
+Build the model with random intercepts and slopes and view the summary output to look at the residuals
+```{r}
+random_slopes.mod <- lmer(yvar ~ 1 + xvar + (1 + xvar|PID), data = figuredata)
+
+summary(random_slopes.mod)
+```
+
+Extract the individual participant intercepts and slopes from this model and add them to the data frame
+```{r}
+figuredata$intercepts2 <- rep(coef(random_slopes.mod)$PID[,1], each = 4)
+figuredata$slopes <- rep(coef(random_slopes.mod)$PID[,2], each = 4)
+```
+
+Build plot
+```{r}
+ggplot(figuredata, aes(x = xvar, y = yvar)) + 
+  geom_abline(slope = model_slope, intercept = model_intercept, 
+              linetype = "solid", color = "black", size = 1) + 
+  geom_abline(mapping = aes(slope = slopes, 
+                            intercept = intercepts2, linetype = PID,color=PID), 
+              linetype = "dashed", size = .4) +
+  geom_point(aes(shape = PID,color=PID), size = 3.25) + 
+  scale_shape_manual(values = c(15, 16, 17, 18)) + 
+  geom_segment(aes(x = xvar, xend = xvar, 
+                   y = yvar, yend = fitted(random_slopes.mod),color=PID)) +
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 750, 1500, 2250), 
+                     limits = c(0, 2600)) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 2, 4, 6, 8, 10), 
+                     limits = c(-0.5, 10.5)) +
+  theme(panel.background = element_blank(),         
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        legend.position = "none", 
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 14)) +
+  labs (x = "Word Difficulty", y = "Response Time") 
+```
+

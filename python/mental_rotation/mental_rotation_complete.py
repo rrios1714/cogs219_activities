@@ -8,25 +8,29 @@ from helper import get_runtime_vars, import_trials, load_files, get_keyboard_res
 win = visual.Window([800,800],color="grey", units='pix', checkTiming=False) 
 
 #get runtime variables
-order =  ['subj_code','seed','gender']
-runtime_vars= get_runtime_vars({'subj_code':'mr_101', 'seed':10, 'gender':['Choose', 'male','female', 'other']}, order)
+order =  ['subj_code','seed','test_mode']
+runtime_vars= get_runtime_vars({'subj_code':'mr_101', 'seed':10, 'test_mode':['Choose', 'practice','real']}, order)
 print(runtime_vars)
 
 # generate trials
-generate_trials(runtime_vars['subj_code'],runtime_vars['seed'])
+generate_trials(runtime_vars['subj_code'],runtime_vars['seed'],runtime_vars['test_mode'])
 
 #positions
 positions = {"center": (0,0)}
 separator=","
 
 #preload
-images_dictionary = load_files(os.path.join(os.getcwd(),"stimuli","images"),'.jpg',fileType="image",win=win)
-print(images_dictionary)
-print(images_dictionary['1_0_R'])
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+print(cur_dir)
+images_dictionary = load_files(os.path.join(cur_dir,"stimuli","images"),'.jpg',fileType="image",win=win)
 
 #add feedback
 correct_feedback = visual.TextStim(win, text = "Correct!",color="white", height=30, pos = (0,0))
 incorrect_feedback = visual.TextStim(win, text = "Incorrect.",color="white", height=30, pos = (0,0))
+
+# add a fixation cross
+fixation_cross = visual.TextStim(win, text = "+",color="black", height=40, pos = (0,0))
+fixation_cross_duration = .3
 
 # add audio feedback
 correct_feedback_sound_path = os.path.join(os.getcwd(),"stimuli","sounds","bleep.wav")
@@ -37,14 +41,24 @@ incorrect_feedback_sound = sound.Sound(incorrect_feedback_sound_path)
 #read in trials
 trial_path = os.path.join(os.getcwd(),'trials',runtime_vars['subj_code']+'_trials.csv')
 trial_list = import_trials(trial_path)
-print(trial_list)
 
 #open file to write data to and store a header
 data_file = open(os.path.join(os.getcwd(),'data',runtime_vars['subj_code']+'_data.csv'),'w')
 header = separator.join(["subj_code","seed", 'image_name','item','angle','match','correct_response','response','rt'])
 data_file.write(header+'\n')
 
+#show instructions
+instruction_text = "Welcome to the experiment!\n\nPress the space bar to continue."
+instruction = visual.TextStim(win, text = instruction_text,color="white", height=30, pos = (0,0))
+instruction.draw()
+win.flip()
+#wait for the space key
+event.waitKeys(keyList=['space'])
+win.flip()
+core.wait(.5)
+
 # trial loop
+responseTimer = core.Clock()
 for cur_trial in trial_list:
 
     #define current image
@@ -55,7 +69,14 @@ for cur_trial in trial_list:
     print(cur_image.size)
     cur_image.size = cur_image.size * 0.5
     #cur_image.size = [400,214]
-
+    
+    #draw fixation cross
+    fixation_cross.draw()
+    
+    #show
+    win.flip()
+    core.wait(fixation_cross_duration)
+    
     #draw image
     cur_image.draw()
     
@@ -64,7 +85,7 @@ for cur_trial in trial_list:
 
     #wait until the participant presses one of the keys from the key list
     event.clearEvents()
-    responseTimer = core.Clock()
+    responseTimer.reset()
     key_pressed = event.waitKeys(keyList=['z','m'],timeStamped=responseTimer)
     #once they press one of those keys, print it out and flip the window (why?)
     if key_pressed:
@@ -78,17 +99,21 @@ for cur_trial in trial_list:
     if response == cur_correct_response:
         #correct
         correct_feedback.draw()
+        win.flip()
         correct_feedback_sound.play() 
         core.wait(0.3)
         correct_feedback_sound.stop() 
     else:
         #incorrect
         incorrect_feedback.draw()
+        
+        win.flip()
         incorrect_feedback_sound.play()
         core.wait(0.3)
         incorrect_feedback_sound.stop() 
     
     #writing a response
+    print([_ for _ in cur_trial])
     response_list=[cur_trial[_] for _ in cur_trial]
     print(response_list)
 	#write dep variables
@@ -101,6 +126,8 @@ for cur_trial in trial_list:
     
     #trial-end wait seconds
     core.wait(0.5)
+    
+    win.flip()
 
 data_file.close()
 win.close() #close the window
