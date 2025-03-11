@@ -1,0 +1,218 @@
+---
+title: "Mixed-Effects Models in BRMS"
+author: "Martin Zettersten"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set()
+```
+
+# Preliminaries
+
+Install packages if they aren't already installed (notice the nice compact code here that avoids re-installing the package if it already is found in your R environment).
+
+```{r}
+if (!("knitr" %in% installed.packages())) install.packages("knitr")
+if (!("tidyverse" %in% installed.packages())) install.packages("tidyverse")
+if (!("here" %in% installed.packages())) install.packages("here")
+if (!("brms" %in% installed.packages())) install.packages("brms")
+if (!("broom.mixed" %in% installed.packages())) install.packages("broom.mixed")
+if (!("tidybayes" %in% installed.packages())) install.packages("tidybayes")
+if (!("bayesplot" %in% installed.packages())) install.packages("bayesplot")
+if (!("modelr" %in% installed.packages())) install.packages("modelr")
+```
+
+Load libraries and set up paths
+
+```{r warning=F,message=F}
+library(knitr)
+library(brms)
+library(tidyverse)
+library(here)
+library(tidybayes)
+library(broom.mixed)
+library(bayesplot)
+library(modelr)
+
+data_path <- here("data")
+```
+
+# General takeaway
+
+An elegant aspect of R's infrastructure is that we can also easily adapt our analyses to a Bayesian regression approach. Here we'll use the "brms" package to fit a Bayesian linear mixed-effects model to the same data we used in the introduction to linear mixed-effects models. Check out the brms documentation for many more vignettes and examples here: <https://paulbuerkner.com/brms/index.html>
+
+# Inspect the data
+
+Load data, and name that object "rt_data"
+
+```{r}
+rt_data <- read_csv(here(data_path,"rt_dummy_data.csv"))
+```
+
+# Recode variables and transform DV
+
+```{r}
+rt_data <- rt_data %>%
+  mutate(
+    #modality_c = ifelse(modality=="Audio-only",-0.5,0.5),
+    log_rt = log(RT)
+  )
+```
+
+# Fit a Bayesian linear mixed-effects model
+
+Let's first fit a Bayesian regression model predicting log reaction time from modality, while accounting for the nested structure of the data, while leaving all of the model parameters at their defaults.
+
+## Fit a default brms model
+
+Notice that the core model syntax is *exactly the same* as for lme4.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+#this takes a while to fit - note the use of caching to save time on future iterations
+rt_mod_log <- brm(log_rt ~ 1 + modality + 
+                      (1 + modality|PID),
+                    data = rt_data)
+```
+
+### Summary
+
+Inspect the summary output.
+
+```{r}
+summary(rt_mod_log)
+```
+
+Summarize specific coefficients using `tidybayes`.
+
+```{r}
+rt_mod_log %>%
+  spread_draws(b_modalityAudiovisual) %>%
+  median_qi()
+```
+
+
+### Posterior Predictive Checks
+
+Check the posterior predictive distribution, i.e. compare the observed data (y) to simulated data from the posterior predictive distribution (y_rep).
+If the model fits the data well, then data we generate (simulate) from the model should look similar to the raw data observed.
+
+```{r}
+pp_check(rt_mod_log)
+```
+
+### Plot MCMC Samples
+
+```{r}
+#plot(rt_mod_log)
+```
+
+### Plot the modality effect
+
+```{r}
+#plot estimated means for each condition tidybayes
+plot(conditional_effects(rt_mod_log))
+```
+
+### Plot the posterior distributions
+
+```{r}
+posterior <- as.matrix(rt_mod_log)
+
+bayesplot::mcmc_areas(posterior,
+           pars = c("b_modalityAudiovisual"),
+           # arbitrary threshold for shading probability mass
+           prob = 0.83) 
+```
+
+### Prettier
+
+```{r}
+post_data <- rt_data %>% 
+  data_grid(modality) %>%
+  add_epred_draws(rt_mod_log, ndraws = 4000, re_formula = NA)
+
+#aggregate participant data
+rt_data_agg <- rt_data %>% 
+  group_by(PID, modality) %>% 
+  summarise(avg_rt = mean(log_rt), .groups = "drop")
+
+post_data %>%
+  ggplot(aes(x=modality,y=.epred,fill=modality))+
+  #geom_jitter(data=rt_data_agg,aes(y=avg_rt,color=modality),position = position_nudge(x = -0.1),alpha=0.5,stroke=NA)+
+  stat_halfeye()+
+  ylab("Log Reaction Time (ms)")+
+  xlab("Modality")+
+  theme_minimal()+
+  theme(legend.position="none")
+```
+
+## Specify model structure more explicitly
+
+Second, Bayesian models are extremely flexible, but that means we also need to specify many aspects of our model more explicitly. 
+Two key features of the model to specify are the model family and the priors.
+Can you figure out what family was used in the above example?
+
+```{r}
+#extract the family
+family(rt_mod_log)
+#extract the priors
+prior_summary(rt_mod_log)
+```
+
+The model family is specified with the `family` argument. 
+Here, we'll now set the Gaussian family explicitly (i.e., assuming a normal distribution), which is the default for continuous outcomes.
+
+Next, we show an example of how to set the model parameters (coefficients, SDs and covariances) more explicitly.
+
+### Specify the prior
+
+```{r}
+#set the prior
+priors <-c(
+  set_prior("normal(6.9, 1)", class = "Intercept"), #normal distribution for intercept around ~ log(1000) ms (just for illustration)
+  set_prior("normal(0, 1)", class = "b"), # normal distribution for fixed-effect coefficients
+  set_prior("normal(0, 0.5)", class = "sd"), #normal distribution for sd/ random effects
+  set_prior("lkj(2)", class = "L")) # lkj distribution for covariance matrix
+```
+
+### Fit the model with family and prior more explicit
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+#this takes a while to fit - note the use of caching to save time on future iterations
+rt_mod_log_w_priors <- brm(log_rt ~ 1 + modality + 
+                      (1 + modality|PID),
+                    data = rt_data,
+                  prior=priors, #our specified priors
+                  family=gaussian() #could also set log as link function
+                  )
+summary(rt_mod_log_w_priors)
+```
+
+### Plot
+
+```{r}
+post_data_w_priors <- rt_data %>% 
+  data_grid(modality) %>%
+  add_epred_draws(rt_mod_log_w_priors, ndraws = 4000, re_formula = NA)
+
+post_data_w_priors %>%
+  ggplot(aes(x=modality,y=.epred,fill=modality))+
+  stat_halfeye()+
+  ylab("Log Reaction Time (ms)")+
+  xlab("Modality")+
+  theme_minimal()+
+  theme(legend.position="none")
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

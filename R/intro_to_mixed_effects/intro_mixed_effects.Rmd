@@ -56,7 +56,9 @@ data_path <- here("data")
 
 # General problem
 
-Many of the datasets we work with in cognitive science have a particular hierarchical structure: they are clustered within units, such that
+Many of the datasets we work with in cognitive science have a particular hierarchical structure: they are clustered within units, such that some factors are nested within others. 
+For example, in within-participant condition designs, we have multiple observations per participant, and condition is nested within participants. 
+How can we account for this nested structure in our modeling approach?
 
 # Inspect the data
 
